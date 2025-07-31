@@ -89,16 +89,122 @@ function handleQRCode(element, id) {
   const dialog = document.getElementById(id);
   const dialogContent = dialog.querySelector(".content-wrapper");
   if (!dialogContent) return;
+  
   openDialog(id, "qrcode");
   dialogContent.textContent = "";
-  const qrcode = new QRCode(dialogContent, {
+  
+  const qrContainer = document.createElement('div');
+  qrContainer.style.cssText = `
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    display: inline-block;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  `;
+  
+  const qrcode = new QRCode(qrContainer, {
     text: element.dataset.url,
     width: 200,
     height: 200,
-    colorDark : "#000000",
-    colorLight : "#ffffff",
-    correctLevel : QRCode.CorrectLevel.H
-  });   
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  
+  const downloadBtn = document.createElement('button');
+  downloadBtn.textContent = 'Download QR Code';
+  downloadBtn.style.cssText = `
+    margin-top: 15px !important;
+    padding: 10px 20px !important;
+    background-color: #007bff !important;
+    background: #007bff !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 5px !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    font-family: inherit !important;
+    font-weight: normal !important;
+    text-decoration: none !important;
+    outline: none !important;
+  `;
+  
+  downloadBtn.addEventListener('click', function() {
+    downloadQRCode(qrContainer, element.dataset.url);
+  });
+  
+  downloadBtn.addEventListener('mouseenter', function() {
+    this.style.setProperty('background-color', '#0056b3', 'important');
+    this.style.setProperty('background', '#0056b3', 'important');
+  });
+  downloadBtn.addEventListener('mouseleave', function() {
+    this.style.setProperty('background-color', '#007bff', 'important');
+    this.style.setProperty('background', '#007bff', 'important');
+  });
+  
+  dialogContent.appendChild(qrContainer);
+  dialogContent.appendChild(downloadBtn);
+}
+
+function downloadQRCode(container, url) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  const borderSize = 40; 
+  canvas.width = 200 + borderSize;
+  canvas.height = 200 + borderSize;
+  
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const qrImg = container.querySelector('img');
+  if (qrImg) {
+    ctx.drawImage(qrImg, borderSize/2, borderSize/2, 200, 200);
+    
+    canvas.toBlob(function(blob) {
+      const link = document.createElement('a');
+      link.download = `qrcode-${Date.now()}.png`;
+      link.href = URL.createObjectURL(blob);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    });
+  } else {
+    setTimeout(() => downloadQRCode(container, url), 100);
+  }
+}
+
+function downloadQRCode(container, url) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  const borderSize = 40; // 20px padding on each side * 2
+  canvas.width = 200 + borderSize;
+  canvas.height = 200 + borderSize;
+  
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const qrImg = container.querySelector('img');
+  if (qrImg) {
+    ctx.drawImage(qrImg, borderSize/2, borderSize/2, 200, 200);
+    
+    canvas.toBlob(function(blob) {
+      const link = document.createElement('a');
+      link.download = `qrcode-${Date.now()}.png`;
+      link.href = URL.createObjectURL(blob);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    });
+  } else {
+    setTimeout(() => downloadQRCode(container, url), 100);
+  }
 }
 
 // copy the link to clipboard
