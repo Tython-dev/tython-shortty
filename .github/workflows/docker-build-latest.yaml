@@ -44,7 +44,7 @@ jobs:
         with:
           host: ${{ secrets.PROXMOX_HOST }}
           username: ${{ secrets.PROXMOX_USER }}
-          key: ${{ secrets.PROXMOX_PASSWORD }}
+          password: ${{ secrets.PROXMOX_PASSWORD }}
           script: |
            ssh -i ~/.ssh/shortty tybot@192.168.100.15 "
               echo '{
