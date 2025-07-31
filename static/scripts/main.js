@@ -2,12 +2,12 @@
 // htmx.logAll();
 
 // add text/html accept header to receive html instead of json for the requests
-document.body.addEventListener("htmx:configRequest", function(evt) {
+document.body.addEventListener("htmx:configRequest", function (evt) {
   evt.detail.headers["Accept"] = "text/html,*/*";
 });
 
 // redirect to homepage
-document.body.addEventListener("redirectToHomepage", function() {
+document.body.addEventListener("redirectToHomepage", function () {
   setTimeout(() => {
     window.location.replace("/");
   }, 1500);
@@ -15,7 +15,7 @@ document.body.addEventListener("redirectToHomepage", function() {
 
 // reset form if event is sent from the backend
 function resetForm(id) {
-  return function() {
+  return function () {
     const form = document.getElementById(id);
     if (!form) return;
     form.reset();
@@ -26,9 +26,9 @@ document.body.addEventListener("resetChangeEmailForm", resetForm("change-email")
 
 // an htmx extension to use the specifed params in the path instead of the query or body
 htmx.defineExtension("path-params", {
-  onEvent: function(name, evt) {
+  onEvent: function (name, evt) {
     if (name === "htmx:configRequest") {
-      evt.detail.path = evt.detail.path.replace(/{([^}]+)}/g, function(_, param) {
+      evt.detail.path = evt.detail.path.replace(/{([^}]+)}/g, function (_, param) {
         var val = evt.detail.parameters[param]
         delete evt.detail.parameters[param]
         return val === undefined ? "{" + param + "}" : encodeURIComponent(val)
@@ -89,19 +89,65 @@ function handleQRCode(element, id) {
   const dialog = document.getElementById(id);
   const dialogContent = dialog.querySelector(".content-wrapper");
   if (!dialogContent) return;
-  
+
   openDialog(id, "qrcode");
   dialogContent.textContent = "";
-  
+
+  const titleContainer = document.createElement('div');
+  titleContainer.style.cssText = `
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    width: 400px;
+    box-sizing: border-box;
+    position: relative;
+  `;
+
+  const linkTitle = document.createElement('div');
+  linkTitle.style.cssText = `
+    font-size: 14px;
+    color: #007bff;
+    word-break: break-all;
+    font-family: monospace;
+    cursor: pointer;
+    padding: 8px 12px;
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    position: relative;
+  `;
+  linkTitle.textContent = element.dataset.url;
+
+  linkTitle.addEventListener('mouseenter', function () {
+    this.style.backgroundColor = '#e3f2fd';
+    this.style.borderColor = '#007bff';
+  });
+  linkTitle.addEventListener('mouseleave', function () {
+    this.style.backgroundColor = 'white';
+    this.style.borderColor = '#dee2e6';
+  });
+
+  linkTitle.addEventListener('click', function () {
+    copyToClipboard(element.dataset.url, titleContainer);
+  });
+
+  titleContainer.appendChild(linkTitle);
+
   const qrContainer = document.createElement('div');
   qrContainer.style.cssText = `
     background-color: white;
     padding: 20px;
     border-radius: 8px;
-    display: inline-block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   `;
-  
+
   const qrcode = new QRCode(qrContainer, {
     text: element.dataset.url,
     width: 200,
@@ -110,7 +156,7 @@ function handleQRCode(element, id) {
     colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.H
   });
-  
+
   const downloadBtn = document.createElement('button');
   downloadBtn.textContent = 'Download QR Code';
   downloadBtn.style.cssText = `
@@ -131,40 +177,118 @@ function handleQRCode(element, id) {
     text-decoration: none !important;
     outline: none !important;
   `;
-  
-  downloadBtn.addEventListener('click', function() {
+
+  downloadBtn.addEventListener('click', function () {
     downloadQRCode(qrContainer, element.dataset.url);
   });
-  
-  downloadBtn.addEventListener('mouseenter', function() {
+
+  downloadBtn.addEventListener('mouseenter', function () {
     this.style.setProperty('background-color', '#0056b3', 'important');
     this.style.setProperty('background', '#0056b3', 'important');
   });
-  downloadBtn.addEventListener('mouseleave', function() {
+  downloadBtn.addEventListener('mouseleave', function () {
     this.style.setProperty('background-color', '#007bff', 'important');
     this.style.setProperty('background', '#007bff', 'important');
   });
-  
+
+  dialogContent.appendChild(titleContainer);
   dialogContent.appendChild(qrContainer);
   dialogContent.appendChild(downloadBtn);
 }
 
+function copyToClipboard(text, container) {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(function () {
+      showCopySuccess(container);
+    }).catch(function (err) {
+      fallbackCopyTextToClipboard(text, container);
+    });
+  } else {
+    fallbackCopyTextToClipboard(text, container);
+  }
+}
+
+function fallbackCopyTextToClipboard(text, container) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  textArea.style.top = "-999999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  try {
+    document.execCommand('copy');
+    showCopySuccess(container);
+  } catch (err) {
+    console.error('Copy failed:', err);
+  }
+
+  document.body.removeChild(textArea);
+}
+
+function showCopySuccess(container) {
+  const successIcon = document.createElement('div');
+  successIcon.innerHTML = 'Copied ✓';
+  successIcon.style.cssText = `
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #28a745;
+    color: white;
+    width: 100px;
+    height: 30px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    animation: copySuccess 0.3s ease-out;
+    z-index: 1000;
+  `;
+
+  if (!document.getElementById('copySuccessStyle')) {
+    const style = document.createElement('style');
+    style.id = 'copySuccessStyle';
+    style.textContent = `
+      @keyframes copySuccess {
+        0% { transform: translateX(-50%) scale(0); opacity: 0; }
+        50% { transform: translateX(-50%) scale(1.1); opacity: 1; }
+        100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  container.appendChild(successIcon);
+
+  setTimeout(() => {
+    if (successIcon.parentNode) {
+      successIcon.parentNode.removeChild(successIcon);
+    }
+  }, 2000);
+}
+
 function downloadQRCode(container, url) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  
+
   const borderSize = 40; 
   canvas.width = 200 + borderSize;
   canvas.height = 200 + borderSize;
-  
+
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
+
   const qrImg = container.querySelector('img');
   if (qrImg) {
-    ctx.drawImage(qrImg, borderSize/2, borderSize/2, 200, 200);
-    
-    canvas.toBlob(function(blob) {
+    ctx.drawImage(qrImg, borderSize / 2, borderSize / 2, 200, 200);
+
+    canvas.toBlob(function (blob) {
       const link = document.createElement('a');
       link.download = `qrcode-${Date.now()}.png`;
       link.href = URL.createObjectURL(blob);
@@ -181,19 +305,19 @@ function downloadQRCode(container, url) {
 function downloadQRCode(container, url) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  
-  const borderSize = 40; // 20px padding on each side * 2
+
+  const borderSize = 40; 
   canvas.width = 200 + borderSize;
   canvas.height = 200 + borderSize;
-  
+
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
+
   const qrImg = container.querySelector('img');
   if (qrImg) {
-    ctx.drawImage(qrImg, borderSize/2, borderSize/2, 200, 200);
-    
-    canvas.toBlob(function(blob) {
+    ctx.drawImage(qrImg, borderSize / 2, borderSize / 2, 200, 200);
+
+    canvas.toBlob(function (blob) {
       const link = document.createElement('a');
       link.download = `qrcode-${Date.now()}.png`;
       link.href = URL.createObjectURL(blob);
@@ -207,23 +331,20 @@ function downloadQRCode(container, url) {
   }
 }
 
-// copy the link to clipboard
 function handleCopyLink(element) {
   navigator.clipboard.writeText(element.dataset.url);
 }
 
-// copy the link and toggle copy button style
 function handleShortURLCopyLink(element) {
   handleCopyLink(element);
   const clipboard = element.parentNode.querySelector(".clipboard") || closest(".clipboard", element);
   if (!clipboard || clipboard.classList.contains("copied")) return;
   clipboard.classList.add("copied");
-  setTimeout(function() {
+  setTimeout(function () {
     clipboard.classList.remove("copied");
   }, 1000);
 }
 
-// open and close dialog
 function openDialog(id, name) {
   const dialog = document.getElementById(id);
   if (!dialog) return;
@@ -242,7 +363,7 @@ function closeDialog() {
   dialog.classList.add("dialog");
 }
 
-window.addEventListener("click", function(event) {
+window.addEventListener("click", function (event) {
   const dialog = document.querySelector(".dialog");
   if (dialog && event.target === dialog) {
     closeDialog();
@@ -378,16 +499,16 @@ function canSendVerificationEmail() {
 // htmx prefetch extension
 // https://github.com/bigskysoftware/htmx-extensions/blob/main/src/preload/README.md
 htmx.defineExtension("preload", {
-  onEvent: function(name, event) {
+  onEvent: function (name, event) {
     if (name !== "htmx:afterProcessNode") {
       return
     }
-    var attr = function(node, property) {
+    var attr = function (node, property) {
       if (node == undefined) { return undefined }
       return node.getAttribute(property) || node.getAttribute("data-" + property) || attr(node.parentElement, property)
     }
-    var load = function(node) {
-      var done = function(html) {
+    var load = function (node) {
+      var done = function (html) {
         if (!node.preloadAlways) {
           node.preloadState = "DONE"
         }
@@ -397,7 +518,7 @@ htmx.defineExtension("preload", {
         }
       }
 
-      return function() {
+      return function () {
         if (node.preloadState !== "READY") {
           return
         }
@@ -405,7 +526,7 @@ htmx.defineExtension("preload", {
         if (hxGet) {
           htmx.ajax("GET", hxGet, {
             source: node,
-            handler: function(elt, info) {
+            handler: function (elt, info) {
               done(info.xhr.responseText)
             }
           })
@@ -414,12 +535,12 @@ htmx.defineExtension("preload", {
         if (node.getAttribute("href")) {
           var r = new XMLHttpRequest()
           r.open("GET", node.getAttribute("href"))
-          r.onload = function() { done(r.responseText) }
+          r.onload = function () { done(r.responseText) }
           r.send()
         }
       }
     }
-    var init = function(node) {
+    var init = function (node) {
       if (node.getAttribute("href") + node.getAttribute("hx-get") + node.getAttribute("data-hx-get") == "") {
         return
       }
@@ -431,7 +552,7 @@ htmx.defineExtension("preload", {
       if (always) {
         on = on.replace("always", "").trim()
       }
-      node.addEventListener(on, function(evt) {
+      node.addEventListener(on, function (evt) {
         if (node.preloadState === "PAUSE") {
           node.preloadState = "READY"
           if (on === "mouseover") {
@@ -444,7 +565,7 @@ htmx.defineExtension("preload", {
       switch (on) {
         case "mouseover":
           node.addEventListener("touchstart", load(node))
-          node.addEventListener("mouseout", function(evt) {
+          node.addEventListener("mouseout", function (evt) {
             if ((evt.target === node) && (node.preloadState === "READY")) {
               node.preloadState = "PAUSE"
             }
@@ -460,7 +581,7 @@ htmx.defineExtension("preload", {
       htmx.trigger(node, "preload:init")
     }
     const parent = event.target || event.detail.elt;
-    parent.querySelectorAll("[preload]").forEach(function(node) {
+    parent.querySelectorAll("[preload]").forEach(function (node) {
       init(node)
       node.querySelectorAll("a,[hx-get],[data-hx-get]").forEach(init)
     })
