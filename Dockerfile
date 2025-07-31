@@ -1,25 +1,26 @@
-# specify node.js image
+# Étape 1 : base sur une image officielle Node.js
 FROM node:22-alpine
 
-# use production node environment by default
+# Définir la variable d'environnement
 ENV NODE_ENV=production
 
-# set working directory.
-WORKDIR /kutt
+# Créer le répertoire de travail dans le conteneur
+WORKDIR /app
 
-# download dependencies while using Docker's caching
-RUN --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=package-lock.json,target=package-lock.json \
-    --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev
+# Copier les fichiers nécessaires à l'installation des dépendances
+COPY package.json package-lock.json ./
 
-RUN mkdir -p /var/lib/kutt
+# Installer uniquement les dépendances de production
+RUN npm install --omit=dev
 
-# copy the rest of source files into the image
+# Copier tous les autres fichiers du projet
 COPY . .
 
-# expose the port that the app listens on
+# Créer un dossier pour les fichiers de base de données si besoin
+RUN mkdir -p /var/lib/kutt
+
+# Exposer le port 3000 (port utilisé par Kutt)
 EXPOSE 3000
 
-# intialize database and run the app
-CMD npm run migrate && npm start
+# Commande à exécuter au démarrage du conteneur
+CMD ["sh", "-c", "npm run migrate && npm start"]
