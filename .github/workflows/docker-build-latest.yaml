@@ -2,7 +2,7 @@ name: pipeline CI/CD
 
 env:
   dockerhub_repository: "tython0tyx/tython_dev"
-  dockerhub_tag: "main"
+  dockerhub_tag: "shortty"
 
 on:
   push:
