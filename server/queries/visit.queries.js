@@ -6,9 +6,15 @@ const knex = require("../knex");
 const env = require("../env");
 
 async function add(params) {
+  let country = params.country.toLowerCase();
+  
+  if (country === "eh") {
+    country = "ma";
+  }
+  
   const data = {
     ...params,
-    country: params.country.toLowerCase(),
+    country: country,
     referrer: params.referrer.toLowerCase()
   };
 

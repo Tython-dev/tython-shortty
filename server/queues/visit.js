@@ -34,7 +34,10 @@ module.exports = function({ data }) {
   const referrer =
   data.referrer && removeWww(URL.parse(data.referrer).hostname);
   
-  const country = data.country || geoip.lookup(data.ip)?.country;
+  let country = data.country || geoip.lookup(data.ip)?.country;
+    if (country === "EH") {
+    country = "MA";
+  }
 
   tasks.push(
     query.visit.add({
