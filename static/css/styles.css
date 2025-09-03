@@ -1363,6 +1363,7 @@ main form label#advanced input {
 
 .advanced-input-wrapper label.expire-in { flex: 1 1 34%; }
 .advanced-input-wrapper label.description { flex: 1 1 65%; }
+.advanced-input-wrapper label.project { flex: 1 1 65%; }
 
 .advanced-input-wrapper label:last-child { padding-right: 0; }
 
@@ -1412,6 +1413,7 @@ main form label#advanced input {
 
 #main-table-wrapper table .original-url { flex: 7 7 0; }
 #main-table-wrapper table .created-at { flex: 2.5 2.5 0; }
+#main-table-wrapper table .project-name { flex: 2.5 2.5 0; }
 #main-table-wrapper table .short-link { flex: 3 3 0; }
 #main-table-wrapper.admin-table-wrapper table .short-link { overflow: visible; }
 #main-table-wrapper table .views { flex: 1 1 0; justify-content: flex-end; }
@@ -1439,6 +1441,7 @@ main form label#advanced input {
 
 #main-table-wrapper table td.original-url,
 #main-table-wrapper table td.created-at,
+#main-table-wrapper table td.project-name,
 #main-table-wrapper.admin-table-wrapper table td.short-link,
 #main-table-wrapper table td.users-email,
 #main-table-wrapper table td.domains-address,

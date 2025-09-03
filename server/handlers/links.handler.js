@@ -19,15 +19,39 @@ const dnsLookup = promisify(dns.lookup);
 async function get(req, res) {
   const { limit, skip } = req.context;
   const search = req.query.search;
+  const project = req.query.project;
+  const groupBy = req.query.groupBy;
   const userId = req.user.id;
 
   const match = {
     user_id: userId
   };
 
+
+  if (groupBy === 'project') {
+    const groups = await query.link.getGroupedByProject(match, { search });
+    
+    if (req.isHTML) {
+      res.render("partials/links/project_groups", {
+        groups: groups.map(group => ({
+          ...group,
+          project: group.project || 'Ungrouped'
+        })),
+      });
+      return;
+    }
+
+    return res.send({
+      data: groups.map(group => ({
+        ...group,
+        project: group.project || 'Ungrouped'
+      })),
+    });
+  }
+
   const [data, total] = await Promise.all([
-    query.link.get(match, { limit, search, skip }),
-    query.link.total(match, { search })
+    query.link.get(match, { limit, search, project, skip }),
+    query.link.total(match, { search, project })
   ]);
 
   if (req.isHTML) {
@@ -35,6 +59,7 @@ async function get(req, res) {
       total,
       limit,
       skip,
+      project,
       links: data.map(utils.sanitize.link_html),
     })
     return;
@@ -52,6 +77,7 @@ async function getAdmin(req, res) {
   const { limit, skip } = req.context;
   const search = req.query.search;
   const user = req.query.user;
+  const project = req.query.project;
   let domain = req.query.domain;
   const banned = utils.parseBooleanQuery(req.query.banned);
   const anonymous = utils.parseBooleanQuery(req.query.anonymous);
@@ -71,8 +97,8 @@ async function getAdmin(req, res) {
   }
   
   const [data, total] = await Promise.all([
-    query.link.getAdmin(match, { limit, search, user, domain, skip }),
-    query.link.totalAdmin(match, { search, user, domain })
+    query.link.getAdmin(match, { limit, search, user, domain, project, skip }),
+    query.link.totalAdmin(match, { search, user, domain, project })
   ]);
 
   const links = data.map(utils.sanitize.link_admin);
@@ -84,6 +110,15 @@ async function getAdmin(req, res) {
       limit,
       skip,
       links,
+      query: {
+        search,
+        user,
+        domain,
+        project,
+        banned: req.query.banned,
+        anonymous: req.query.anonymous,
+        has_domain: req.query.has_domain
+      }
     })
     return;
   }
@@ -97,7 +132,7 @@ async function getAdmin(req, res) {
 };
 
 async function create(req, res) {
-  const { reuse, password, customurl, description, target, fetched_domain, expire_in } = req.body;
+  const { reuse, password, customurl, description, target, fetched_domain, expire_in, project } = req.body;
   const domain_id = fetched_domain ? fetched_domain.id : null;
   
   const targetDomain = utils.removeWww(URL.parse(target).hostname);
@@ -107,7 +142,8 @@ async function create(req, res) {
       query.link.find({
         target,
         user_id: req.user.id,
-        domain_id
+        domain_id,
+        project: project || null
       }),
     customurl &&
       query.link.find({
@@ -141,6 +177,7 @@ async function create(req, res) {
     description,
     target,
     expire_in,
+    project,
     user_id: req.user && req.user.id
   });
 
@@ -176,12 +213,16 @@ async function edit(req, res) {
     [req.body.target, "target"], 
     [req.body.description, "description"], 
     [req.body.expire_in, "expire_in"], 
+    [req.body.project, "project"],
     [req.body.password, "password"]
   ].forEach(([value, name]) => {
     if (!value) {
       if (name === "password" && link.password) 
         req.body.password = null;
-      else {
+      else if (name === "project") {
+        // Allow clearing project field
+        req.body.project = null;
+      } else {
         delete req.body[name];
         return;
       }
@@ -205,7 +246,7 @@ async function edit(req, res) {
     throw new CustomError("Should at least update one field.");
   }
 
-  const { address, target, description, expire_in, password } = req.body;
+  const { address, target, description, expire_in, project, password } = req.body;
   
   const targetDomain = target && utils.removeWww(URL.parse(target).hostname);
   const domain_id = link.domain_id || null;
@@ -237,6 +278,7 @@ async function edit(req, res) {
       ...(description && { description }),
       ...(target && { target }),
       ...(expire_in && { expire_in }),
+      ...(project !== undefined && { project }),
       ...((password || password === null) && { password })
     }
   );
@@ -269,6 +311,7 @@ async function editAdmin(req, res) {
     [req.body.target, "target"], 
     [req.body.description, "description"], 
     [req.body.expire_in, "expire_in"], 
+    [req.body.project, "project"],
     [req.body.password, "password"]
   ].forEach(([value, name]) => {
     if (!value) {
@@ -298,7 +341,7 @@ async function editAdmin(req, res) {
     throw new CustomError("Should at least update one field.");
   }
 
-  const { address, target, description, expire_in, password } = req.body;
+  const { address, target, description, expire_in, project, password } = req.body;
   
   const targetDomain = target && utils.removeWww(URL.parse(target).hostname);
   const domain_id = link.domain_id || null;
@@ -330,6 +373,7 @@ async function editAdmin(req, res) {
       ...(description && { description }),
       ...(target && { target }),
       ...(expire_in && { expire_in }),
+      ...(project !== undefined && { project }),
       ...((password || password === null) && { password })
     }
   );

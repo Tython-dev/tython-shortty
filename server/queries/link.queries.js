@@ -21,6 +21,7 @@ const selectable = [
   "links.visit_count",
   "links.user_id",
   "links.uuid",
+  "links.project",
   "domains.address as domain"
 ];
 
@@ -57,6 +58,11 @@ function normalizeMatch(match) {
     delete newMatch.banned;
   }
 
+  if (newMatch.project !== undefined) {
+    newMatch["links.project"] = newMatch.project;
+    delete newMatch.project;
+  }
+
   return newMatch;
 }
 
@@ -70,10 +76,19 @@ async function total(match, params) {
 
   if (params?.search) {
     query[knex.compatibleILIKE](
-      knex.raw("concat_ws(' ', description, links.address, target, domains.address)"), 
+      knex.raw("concat_ws(' ', description, links.address, target, domains.address, links.project)"), 
       "%" + params.search + "%"
     );
   }
+
+  if (params?.project) {
+    if (params.project === 'ungrouped') {
+      query.where('links.project', null);
+    } else {
+      query.where('links.project', params.project);
+    }
+  }
+  
   query.leftJoin("domains", "links.domain_id", "domains.id");
   query.count("* as count");
   
@@ -100,13 +115,21 @@ async function totalAdmin(match, params) {
 
   if (params?.search) {
     query[knex.compatibleILIKE](
-      knex.raw("concat_ws(' ', description, links.address, target)"),
+      knex.raw("concat_ws(' ', description, links.address, target, links.project)"),
       "%" + params.search + "%"
     );
   }
 
   if (params?.domain) {
     query[knex.compatibleILIKE]("domains.address", "%" + params.domain + "%");
+  }
+
+  if (params?.project) {
+    if (params.project === 'ungrouped') {
+      query.where('links.project', null);
+    } else {
+      query[knex.compatibleILIKE]("links.project", "%" + params.project + "%");
+    }
   }
   
   query.leftJoin("domains", "links.domain_id", "domains.id");
@@ -128,9 +151,17 @@ async function get(match, params) {
   
   if (params?.search) {
     query[knex.compatibleILIKE](
-      knex.raw("concat_ws(' ', description, links.address, target, domains.address)"), 
+      knex.raw("concat_ws(' ', description, links.address, target, domains.address, links.project)"), 
       "%" + params.search + "%"
     );
+  }
+
+  if (params?.project) {
+    if (params.project === 'ungrouped') {
+      query.where('links.project', null);
+    } else {
+      query.where('links.project', params.project);
+    }
   }
   
   query.leftJoin("domains", "links.domain_id", "domains.id");
@@ -161,7 +192,7 @@ async function getAdmin(match, params) {
 
   if (params?.search) {
     query[knex.compatibleILIKE](
-      knex.raw("concat_ws(' ', description, links.address, target)"),
+      knex.raw("concat_ws(' ', description, links.address, target, links.project)"),
       "%" + params.search + "%"
     );
   }
@@ -169,11 +200,42 @@ async function getAdmin(match, params) {
   if (params?.domain) {
     query[knex.compatibleILIKE]("domains.address", "%" + params.domain + "%");
   }
+
+  if (params?.project) {
+    if (params.project === 'ungrouped') {
+      query.where('links.project', null);
+    } else {
+      query[knex.compatibleILIKE]("links.project", "%" + params.project + "%");
+    }
+  }
   
   query.leftJoin("domains", "links.domain_id", "domains.id");
   query.leftJoin("users", "links.user_id", "users.id");
 
   return query;
+}
+
+async function getGroupedByProject(match, params) {
+  const baseQuery = knex("links")
+    .select([
+      'links.project',
+      knex.raw('COUNT(*) as link_count'),
+      knex.raw('MAX(links.created_at) as latest_created_at')
+    ])
+    .where(normalizeMatch(match))
+    .groupBy('links.project')
+    .orderBy('latest_created_at', 'desc');
+
+  if (params?.search) {
+    baseQuery[knex.compatibleILIKE](
+      knex.raw("concat_ws(' ', description, links.address, target, domains.address, links.project)"), 
+      "%" + params.search + "%"
+    );
+  }
+
+  baseQuery.leftJoin("domains", "links.domain_id", "domains.id");
+
+  return baseQuery;
 }
 
 async function find(match) {
@@ -215,6 +277,7 @@ async function create(params) {
       address: params.address,
       description: params.description || null,
       expire_in: params.expire_in || null,
+      project: params.project || null,
       target: params.target
     },
     "*"
@@ -302,6 +365,7 @@ module.exports = {
   find,
   get,
   getAdmin,
+  getGroupedByProject,
   incrementVisit,
   remove,
   total,

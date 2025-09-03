@@ -61,6 +61,12 @@ const createLink = [
     .trim()
     .isLength({ min: 1, max: 2040 })
     .withMessage("Description length must be between 1 and 2040."),
+  body("project")
+    .optional({ nullable: true, checkFalsy: true })
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage("Project name length must be between 1 and 100."),
   body("expire_in")
     .optional({ nullable: true, checkFalsy: true })
     .isString()
@@ -146,6 +152,12 @@ const editLink = [
     .trim()
     .isLength({ min: 0, max: 2040 })
     .withMessage("Description length must be between 0 and 2040."),
+  body("project")
+    .optional({ nullable: true, checkFalsy: true })
+    .isString()
+    .trim()
+    .isLength({ min: 0, max: 100 })
+    .withMessage("Project name length must be between 0 and 100."),
   param("id", "ID is invalid.")
     .exists({ checkFalsy: true, checkNull: true })
     .isLength({ min: 36, max: 36 })
