@@ -23,4 +23,4 @@ RUN mkdir -p /var/lib/kutt
 EXPOSE 3000
 
 # Commande à exécuter au démarrage du conteneur
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npm run migrate && npm start"]
