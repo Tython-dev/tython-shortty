@@ -20,19 +20,19 @@ async function find(match) {
   });
 
   const user = await query.first();
-  
+
   if (user && env.REDIS_ENABLED) {
     if (match.id) {
       const idKey = redis.key.user(user.id);
       redis.client.set(idKey, JSON.stringify(user), "EX", 60 * 15);
     }
-  
+
     if (match.apikey) {
       const apikeyKey = redis.key.user(user.apikey);
       redis.client.set(apikeyKey, JSON.stringify(user), "EX", 60 * 15);
     }
   }
-  
+
   return user;
 }
 
@@ -43,9 +43,9 @@ async function add(params, user) {
     ...(params.role && { role: params.role }),
     ...(params.verified !== undefined && { verified: params.verified }),
     verification_token: randomUUID(),
-    verification_expires: utils.dateToUTC(addMinutes(new Date(), 60))
+    verification_expires: utils.dateToUTC(addMinutes(new Date(), 60)),
   };
-  
+
   if (user) {
     await knex("users")
       .where("id", user.id)
@@ -53,19 +53,19 @@ async function add(params, user) {
   } else {
     await knex("users").insert(data);
   }
-  
+
   if (env.REDIS_ENABLED) {
     redis.remove.user(user);
   }
-  
+
   return {
     ...user,
-    ...data
+    ...data,
   };
 }
 
 async function update(match, update, methods) {
-  const { user, updated_user } = await knex.transaction(async function(trx) {
+  const { user, updated_user } = await knex.transaction(async function (trx) {
     const query = trx("users");
     Object.entries(match).forEach(([key, value]) => {
       query.andWhere(key, ...(Array.isArray(value) ? value : [value]));
@@ -73,15 +73,18 @@ async function update(match, update, methods) {
 
     const user = await query.select("id").first();
     if (!user) return {};
-    
+
     const updateQuery = trx("users").where("id", user.id);
     if (methods?.increments) {
-      methods.increments.forEach(columnName => {
+      methods.increments.forEach((columnName) => {
         updateQuery.increment(columnName);
       });
     }
-    
-    await updateQuery.update({ ...update, updated_at: utils.dateToUTC(new Date()) });
+
+    await updateQuery.update({
+      ...update,
+      updated_at: utils.dateToUTC(new Date()),
+    });
     const updated_user = await trx("users").where("id", user.id).first();
 
     return { user, updated_user };
@@ -97,11 +100,11 @@ async function update(match, update, methods) {
 
 async function remove(user) {
   const deletedUser = await knex("users").where("id", user.id).delete();
-  
+
   if (env.REDIS_ENABLED) {
     redis.remove.user(user);
   }
-  
+
   return !!deletedUser;
 }
 
@@ -113,11 +116,11 @@ const selectable_admin = [
   "users.banned",
   "users.banned_by_id",
   "users.created_at",
-  "users.updated_at"
+  "users.updated_at",
 ];
 
 function normalizeMatch(match) {
-  const newMatch = { ...match }
+  const newMatch = { ...match };
 
   if (newMatch.banned !== undefined) {
     newMatch["users.banned"] = newMatch.banned;
@@ -140,7 +143,7 @@ async function getAdmin(match, params) {
     .groupBy(1)
     .groupBy("l.links_count")
     .groupBy("d.domains");
-  
+
   if (params?.search) {
     const id = parseInt(params?.search);
     if (Number.isNaN(id)) {
@@ -157,19 +160,26 @@ async function getAdmin(match, params) {
   if (params?.links !== undefined) {
     query.andWhere("links_count", params?.links ? "is not" : "is", null);
   }
-  
+
   query.leftJoin(
     knex("domains")
-    .select("user_id", knex.isMySQL
-      ? knex.raw("group_concat(address SEPARATOR ', ') AS domains")
-      : knex.raw("string_agg(address, ', ') AS domains")
-    )
-    .groupBy("user_id").as("d"),
+      .select(
+        "user_id",
+        knex.isMySQL
+          ? knex.raw("group_concat(address SEPARATOR ', ') AS domains")
+          : knex.raw("string_agg(address, ', ') AS domains")
+      )
+      .groupBy("user_id")
+      .as("d"),
     "users.id",
     "d.user_id"
-  )
+  );
   query.leftJoin(
-    knex("links").select("user_id").count("* as links_count").groupBy("user_id").as("l"),
+    knex("links")
+      .select("user_id")
+      .count("* as links_count")
+      .groupBy("user_id")
+      .as("l"),
     "users.id",
     "l.user_id"
   );
@@ -196,11 +206,14 @@ async function totalAdmin(match, params) {
     query.andWhere("domains", params?.domains ? "is not" : "is", null);
     query.leftJoin(
       knex("domains")
-        .select("user_id", knex.isMySQL
-          ? knex.raw("group_concat(address SEPARATOR ', ') AS domains")
-          : knex.raw("string_agg(address, ', ') AS domains")
+        .select(
+          "user_id",
+          knex.isMySQL
+            ? knex.raw("group_concat(address SEPARATOR ', ') AS domains")
+            : knex.raw("string_agg(address, ', ') AS domains")
         )
-        .groupBy("user_id").as("d"),
+        .groupBy("user_id")
+        .as("d"),
       "users.id",
       "d.user_id"
     );
@@ -209,7 +222,11 @@ async function totalAdmin(match, params) {
   if (params?.links !== undefined) {
     query.andWhere("links", params?.links ? "is not" : "is", null);
     query.leftJoin(
-      knex("links").select("user_id").count("* as links").groupBy("user_id").as("l"),
+      knex("links")
+        .select("user_id")
+        .count("* as links")
+        .groupBy("user_id")
+        .as("l"),
       "users.id",
       "l.user_id"
     );
@@ -221,13 +238,17 @@ async function totalAdmin(match, params) {
 }
 
 async function create(params) {
-  let [user] = await knex("users").insert({
-    email: params.email,
-    password: params.password,
-    role: params.role ?? ROLES.USER,
-    verified: params.verified ?? false,
-    banned: params.banned ?? false,
-  }, "*");
+  let [user] = await knex("users").insert(
+    {
+      email: params.email,
+      password: params.password,
+      role: params.role ?? ROLES.USER,
+      verified: params.verified ?? false,
+      banned: params.banned ?? false,
+      apikey: params.apikey ?? null,
+    },
+    "*"
+  );
 
   // mysql doesn't return the whole user, but rather the id number only
   // so we need to fetch the user ourselves
@@ -263,4 +284,4 @@ module.exports = {
   remove,
   totalAdmin,
   update,
-}
+};

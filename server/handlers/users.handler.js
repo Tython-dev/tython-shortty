@@ -4,6 +4,7 @@ const query = require("../queries");
 const utils = require("../utils");
 const mail = require("../mail");
 const env = require("../env");
+const { nanoid } = require("nanoid");
 
 async function get(req, res) {
   const domains = await query.domain.get({ user_id: req.user.id });
@@ -11,11 +12,11 @@ async function get(req, res) {
   const data = {
     apikey: req.user.apikey,
     email: req.user.email,
-    domains: domains.map(utils.sanitize.domain)
+    domains: domains.map(utils.sanitize.domain),
   };
 
   return res.status(200).send(data);
-};
+}
 
 async function remove(req, res) {
   await query.user.remove(req.user);
@@ -24,13 +25,13 @@ async function remove(req, res) {
     utils.deleteCurrentToken(res);
     res.setHeader("HX-Trigger-After-Swap", "redirectToHomepage");
     res.render("partials/settings/delete_account", {
-      success: "Account has been deleted. Logging out..."
+      success: "Account has been deleted. Logging out...",
     });
     return;
   }
-  
+
   return res.status(200).send("OK");
-};
+}
 
 async function removeByAdmin(req, res) {
   const user = await query.user.find({ id: req.params.id });
@@ -40,13 +41,13 @@ async function removeByAdmin(req, res) {
     if (req.isHTML) {
       return res.render("partials/admin/dialog/message", {
         layout: false,
-        message
+        message,
       });
     } else {
       return res.status(400).send({ message });
     }
   }
-  
+
   await query.user.remove(user);
 
   if (req.isHTML) {
@@ -57,9 +58,11 @@ async function removeByAdmin(req, res) {
     });
     return;
   }
-  
-  return res.status(200).send({ message: "User has been deleted successfully." });
-};
+
+  return res
+    .status(200)
+    .send({ message: "User has been deleted successfully." });
+}
 
 async function getAdmin(req, res) {
   const { limit, skip, all } = req.context;
@@ -78,11 +81,11 @@ async function getAdmin(req, res) {
 
   const [data, total] = await Promise.all([
     query.user.getAdmin(match, { limit, search, domains, links, skip }),
-    query.user.totalAdmin(match, { search, domains, links })
+    query.user.totalAdmin(match, { search, domains, links }),
   ]);
 
   const users = data.map(utils.sanitize.user_admin);
-    
+
   if (req.isHTML) {
     res.render("partials/admin/users/table", {
       total,
@@ -90,7 +93,7 @@ async function getAdmin(req, res) {
       limit,
       skip,
       users,
-    })
+    });
     return;
   }
 
@@ -100,14 +103,14 @@ async function getAdmin(req, res) {
     skip,
     data: users,
   });
-};
+}
 
 async function ban(req, res) {
   const { id } = req.params;
 
   const update = {
     banned_by_id: req.user.id,
-    banned: true
+    banned: true,
   };
 
   // 1. check if user exists
@@ -125,12 +128,12 @@ async function ban(req, res) {
 
   // 2. ban user
   tasks.push(query.user.update({ id }, update));
-  
+
   // 3. ban user links
   if (req.body.links) {
     tasks.push(query.link.update({ user_id: id }, update));
   }
-  
+
   // 4. ban user domains
   if (req.body.domains) {
     tasks.push(query.domain.update({ user_id: id }, update));
@@ -157,10 +160,19 @@ async function ban(req, res) {
 async function create(req, res) {
   const salt = await bcrypt.genSalt(12);
   req.body.password = await bcrypt.hash(req.body.password, salt);
+  if (!req.isHTML && req.query.verified == "true") {
+    req.body.apikey = nanoid(40);
+    req.body.verified = true;
+  }
 
   const user = await query.user.create(req.body);
 
-  if (req.body.verification_email && !user.banned && !user.verified) {
+  if (
+    req.body.verification_email &&
+    !user.banned &&
+    !user.verified &&
+    req.query.verified != "true"
+  ) {
     await mail.verification(user);
   }
 
@@ -171,8 +183,8 @@ async function create(req, res) {
     });
     return;
   }
-
-  return res.status(201).send({ message: "The user has been created successfully." });
+  delete user.password;
+  return res.status(201).send(user);
 }
 
 module.exports = {
@@ -182,4 +194,4 @@ module.exports = {
   getAdmin,
   remove,
   removeByAdmin,
-}
+};
