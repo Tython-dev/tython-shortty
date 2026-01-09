@@ -38,9 +38,17 @@ if (env.TRUST_PROXY) {
 app.use(
   helmet({
     contentSecurityPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginResourcePolicy: false, // Disable helmet's CORP
+    crossOriginOpenerPolicy: false,
   })
 );
+
+// Manually set CORP header to allow cross-origin access
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+});
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -69,12 +77,12 @@ app.use(asyncHandler(links.redirectCustomDomainHomepage));
 // render html pages
 app.use("/", routes.render);
 
-// handle api requests
-app.use("/api/v2", routes.api);
-app.use("/api", routes.api);
+// handle api requests (with CORS enabled)
+app.use("/api/v2", cors(), routes.api);
+app.use("/api", cors(), routes.api);
 
-// finally, redirect the short link to the target
-app.get("/:id", asyncHandler(links.redirect));
+// finally, redirect the short link to the target (with CORS enabled)
+app.get("/:id", cors(), asyncHandler(links.redirect));
 
 // 404 pages that don't exist
 app.get("*", renders.notFound);
