@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const passport = require("passport");
 const express = require("express");
 const helmet = require("helmet");
+const cors = require("cors");
 const path = require("node:path");
 const hbs = require("hbs");
 
@@ -14,7 +15,6 @@ const locals = require("./handlers/locals.handler");
 const links = require("./handlers/links.handler");
 const routes = require("./routes");
 const utils = require("./utils");
-
 
 // run the cron jobs
 // the app might be running in cluster mode (multiple instances) so run the cron job only on one cluster (the first one)
@@ -35,6 +35,7 @@ if (env.TRUST_PROXY) {
   app.set("trust proxy", true);
 }
 
+app.use(cors());
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cookieParser());
 app.use(express.json());
@@ -76,7 +77,7 @@ app.get("*", renders.notFound);
 
 // handle errors coming from above routes
 app.use(helpers.error);
-  
+
 app.listen(env.PORT, () => {
   console.log(`> Ready on http://localhost:${env.PORT}`);
 });
