@@ -35,8 +35,12 @@ if (env.TRUST_PROXY) {
   app.set("trust proxy", true);
 }
 
-app.use(cors());
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
